@@ -191,7 +191,8 @@ typedef void (^SentryOnAppStartMeasurementAvailable)(
 + (SentryBreadcrumb *)breadcrumbWithDictionary:(NSDictionary *)dictionary;
 
 + (nullable SentryOptions *)optionsWithDictionary:(NSDictionary<NSString *, id> *)options
-                                 didFailWithError:(NSError *_Nullable *_Nullable)error;
+                                 didFailWithError:(NSError *_Nullable *_Nullable)error
+    NS_SWIFT_NAME(makeOptions(fromDictionary:));
 
 /**
  * Sets a custom log output handler. This allows hybrid SDKs (React Native, Flutter, etc.)
