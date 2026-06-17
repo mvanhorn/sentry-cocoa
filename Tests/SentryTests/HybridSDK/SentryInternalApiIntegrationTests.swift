@@ -1,4 +1,4 @@
-@testable import Sentry
+@_spi(Private) @testable import Sentry
 import SentryTestUtils
 import XCTest
 
@@ -156,7 +156,7 @@ class SentryInternalApiIntegrationTests: XCTestCase {
         }
         defer { SentrySDK.internal.setLogOutput(nil) }
 
-        SentrySDKLog.log(message: "test-log-output")
+        SentrySDKLog.log(message: "test-log-output", andLevel: .debug)
         XCTAssertTrue(received?.contains("test-log-output") == true)
     }
 
