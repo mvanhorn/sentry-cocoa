@@ -92,12 +92,17 @@ public struct SentryInternalApi {
 
     /// Returns the current SDK options, or a default instance if the SDK has not been started.
     public var options: Options {
-        PrivateSentrySDKOnly.options
+        PrivateSentrySDKOnly.options as? Options ?? Options()
     }
 
     /// Creates SDK options from a dictionary representation.
     public func options(fromDictionary dictionary: [String: Any]) throws -> Options {
-        try PrivateSentrySDKOnly.makeOptions(fromDictionary: dictionary)
+        guard let options = try PrivateSentrySDKOnly.makeOptions(fromDictionary: dictionary) as? Options else {
+            throw NSError(domain: "SentryInternalApi", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to create options from dictionary"
+            ])
+        }
+        return options
     }
 
     init(dependencies: Dependencies) {

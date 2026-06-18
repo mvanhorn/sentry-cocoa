@@ -29237,9 +29237,8 @@
               },
               {
                 "kind": "TypeNominal",
-                "name": "Options",
-                "printedName": "Sentry.Options",
-                "usr": "c:@M@Sentry@objc(cs)SentryOptions"
+                "name": "ProtocolComposition",
+                "printedName": "Any"
               }
             ],
             "declAttributes": [
@@ -30372,9 +30371,8 @@
                 "children": [
                   {
                     "kind": "TypeNominal",
-                    "name": "Options",
-                    "printedName": "Sentry.Options",
-                    "usr": "c:@M@Sentry@objc(cs)SentryOptions"
+                    "name": "ProtocolComposition",
+                    "printedName": "Any"
                   }
                 ],
                 "declAttributes": [
@@ -30396,14 +30394,12 @@
             "children": [
               {
                 "kind": "TypeNominal",
-                "name": "Options",
-                "printedName": "Sentry.Options",
-                "usr": "c:@M@Sentry@objc(cs)SentryOptions"
+                "name": "ProtocolComposition",
+                "printedName": "Any"
               }
             ],
             "declAttributes": [
               "Dynamic",
-              "NSCopying",
               "ObjC"
             ],
             "declKind": "Var",
