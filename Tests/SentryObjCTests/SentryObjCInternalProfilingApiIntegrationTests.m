@@ -36,12 +36,8 @@
 
 #    pragma mark - start
 
-- (void)testStart_shouldReturnNonZeroTime
+- (void)testStart_shouldReturnNonZero
 {
-    if ([self threadSanitizerIsPresent]) {
-        return;
-    }
-
     // -- Arrange --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
 
@@ -50,39 +46,33 @@
 
     // -- Assert --
     XCTAssertGreaterThan(startTime, (uint64_t)0);
+
+    // -- Cleanup --
+    [SentryObjCSDK.internal.profiling discardFor:traceId];
 }
 
 #    pragma mark - collect
 
 - (void)testCollect_afterStart_shouldReturnPayload
 {
-    if ([self threadSanitizerIsPresent]) {
-        return;
-    }
-
     // -- Arrange --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
     uint64_t startTime = [SentryObjCSDK.internal.profiling startFor:traceId];
-    XCTAssertGreaterThan(startTime, (uint64_t)0);
     [NSThread sleepForTimeInterval:0.2];
 
     // -- Act --
     NSDictionary<NSString *, id> *payload =
-        [SentryObjCSDK.internal.profiling collectBetween:startTime
-                                                     and:startTime + 200000000
-                                                     for:traceId];
+        [SentryObjCSDK.internal.profiling collectBetweenStartTime:startTime
+                                                       andEndTime:startTime + 200000000
+                                                       forTraceId:traceId];
 
     // -- Assert --
     XCTAssertNotNil(payload);
     XCTAssertEqualObjects(payload[@"platform"], @"cocoa");
 }
 
-- (void)testCollect_payloadContainsProfileData
+- (void)testCollect_shouldContainProfileStructure
 {
-    if ([self threadSanitizerIsPresent]) {
-        return;
-    }
-
     // -- Arrange --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
     uint64_t startTime = [SentryObjCSDK.internal.profiling startFor:traceId];
@@ -90,14 +80,13 @@
 
     // -- Act --
     NSDictionary<NSString *, id> *payload =
-        [SentryObjCSDK.internal.profiling collectBetween:startTime
-                                                     and:startTime + 200000000
-                                                     for:traceId];
+        [SentryObjCSDK.internal.profiling collectBetweenStartTime:startTime
+                                                       andEndTime:startTime + 200000000
+                                                       forTraceId:traceId];
 
     // -- Assert --
-    XCTAssertNotNil(payload[@"device"]);
     XCTAssertNotNil(payload[@"profile_id"]);
-
+    XCTAssertNotNil(payload[@"device"]);
     NSDictionary *profile = payload[@"profile"];
     XCTAssertNotNil(profile[@"thread_metadata"]);
     XCTAssertNotNil(profile[@"samples"]);
@@ -105,12 +94,8 @@
     XCTAssertNotNil(profile[@"frames"]);
 }
 
-- (void)testCollect_payloadContainsTransactionInfo
+- (void)testCollect_shouldContainTransactionInfo
 {
-    if ([self threadSanitizerIsPresent]) {
-        return;
-    }
-
     // -- Arrange --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
     uint64_t startTime = [SentryObjCSDK.internal.profiling startFor:traceId];
@@ -118,9 +103,9 @@
 
     // -- Act --
     NSDictionary<NSString *, id> *payload =
-        [SentryObjCSDK.internal.profiling collectBetween:startTime
-                                                     and:startTime + 200000000
-                                                     for:traceId];
+        [SentryObjCSDK.internal.profiling collectBetweenStartTime:startTime
+                                                       andEndTime:startTime + 200000000
+                                                       forTraceId:traceId];
 
     // -- Assert --
     NSDictionary *transaction = payload[@"transaction"];
@@ -133,7 +118,9 @@
     // -- Act --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
     NSDictionary<NSString *, id> *result =
-        [SentryObjCSDK.internal.profiling collectBetween:0 and:1 for:traceId];
+        [SentryObjCSDK.internal.profiling collectBetweenStartTime:0
+                                                       andEndTime:1
+                                                       forTraceId:traceId];
 
     // -- Assert --
     XCTAssertNil(result);
@@ -143,10 +130,6 @@
 
 - (void)testDiscard_afterStart_shouldNotCrash
 {
-    if ([self threadSanitizerIsPresent]) {
-        return;
-    }
-
     // -- Arrange --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
     uint64_t startTime = [SentryObjCSDK.internal.profiling startFor:traceId];
@@ -162,18 +145,6 @@
     // -- Act & Assert (no crash) --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
     [SentryObjCSDK.internal.profiling discardFor:traceId];
-}
-
-#    pragma mark - Helpers
-
-- (BOOL)threadSanitizerIsPresent
-{
-#    if defined(__has_feature)
-#        if __has_feature(thread_sanitizer)
-    return YES;
-#        endif
-#    endif
-    return NO;
 }
 
 @end

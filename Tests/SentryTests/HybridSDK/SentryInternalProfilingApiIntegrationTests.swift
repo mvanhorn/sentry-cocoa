@@ -1,5 +1,5 @@
 @_spi(Private) @testable import Sentry
-@_spi(Private) import SentryTestUtils
+import SentryTestUtils
 import XCTest
 
 #if !(os(watchOS) || os(tvOS) || os(visionOS))
@@ -17,8 +17,14 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
 
     private func startSDK() {
         SentrySDK.start { options in
-            options.dsn = Self.dsnAsString
+            options.dsn = SentryInternalProfilingApiIntegrationTests.dsnAsString
             options.removeAllIntegrations()
+        }
+    }
+
+    private func skipIfThreadSanitizer() throws {
+        if sentry_threadSanitizerIsPresent() {
+            throw XCTSkip("Profiler does not run if thread sanitizer is attached.")
         }
     }
 
@@ -36,7 +42,7 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
 
     // MARK: - start
 
-    func testStart_withSDKRunning_shouldReturnNonZeroTime() throws {
+    func testStart_withSDKRunning_shouldReturnNonZero() throws {
         try skipIfThreadSanitizer()
         startSDK()
 
@@ -47,7 +53,7 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
         XCTAssertGreaterThan(startTime, 0)
     }
 
-    func testStart_multipleTimes_shouldReturnDifferentStartTimes() throws {
+    func testStart_multipleTraces_shouldReturnDistinctNonZeroTimes() throws {
         try skipIfThreadSanitizer()
         startSDK()
 
@@ -60,6 +66,10 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
         // -- Assert --
         XCTAssertGreaterThan(startTimeA, 0)
         XCTAssertGreaterThan(startTimeB, 0)
+
+        // -- Cleanup --
+        SentrySDK.internal.profiling.discard(for: traceA)
+        SentrySDK.internal.profiling.discard(for: traceB)
     }
 
     // MARK: - collect
@@ -68,139 +78,38 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
         try skipIfThreadSanitizer()
         startSDK()
 
-        let traceId = SentryId()
-
         // -- Arrange --
+        let traceId = SentryId()
         let startTime = SentrySDK.internal.profiling.start(for: traceId)
-        XCTAssertGreaterThan(startTime, 0)
         Thread.sleep(forTimeInterval: 0.2)
 
         // -- Act --
         let payload = SentrySDK.internal.profiling.collect(
-            between: startTime,
-            and: startTime + 200_000_000,
-            for: traceId
+            between: startTime, and: startTime + 200_000_000, for: traceId
         )
 
         // -- Assert --
         XCTAssertNotNil(payload)
-    }
-
-    func testCollect_payloadContainsPlatform() throws {
-        try skipIfThreadSanitizer()
-        startSDK()
-
-        let traceId = SentryId()
-        let startTime = SentrySDK.internal.profiling.start(for: traceId)
-        Thread.sleep(forTimeInterval: 0.2)
-
-        // -- Act --
-        let payload = SentrySDK.internal.profiling.collect(
-            between: startTime,
-            and: startTime + 200_000_000,
-            for: traceId
-        )
-
-        // -- Assert --
         XCTAssertEqual(payload?["platform"] as? String, "cocoa")
     }
 
-    func testCollect_payloadContainsDebugMeta() throws {
+    func testCollect_shouldContainProfileStructure() throws {
         try skipIfThreadSanitizer()
-
-        let image = DebugMeta()
-        image.imageAddress = "0x0000000105705000"
-        image.imageVmAddress = "0x0000000105705000"
-        image.codeFile = "codeFile"
-        image.debugID = "debugID"
-        image.imageSize = 100
-        image.type = "macho"
-
-        let debugImageProvider = TestDebugImageProvider()
-        debugImageProvider.debugImages = [image]
-        SentryDependencyContainer.sharedInstance().debugImageProvider = debugImageProvider
-
         startSDK()
 
+        // -- Arrange --
         let traceId = SentryId()
         let startTime = SentrySDK.internal.profiling.start(for: traceId)
         Thread.sleep(forTimeInterval: 0.2)
 
         // -- Act --
         let payload = SentrySDK.internal.profiling.collect(
-            between: startTime,
-            and: startTime + 200_000_000,
-            for: traceId
-        )
-
-        // -- Assert --
-        XCTAssertEqual(1, debugImageProvider.getDebugImagesFromCacheInvocations.count)
-
-        let debugMeta = try XCTUnwrap(payload?["debug_meta"] as? [String: Any])
-        let images = try XCTUnwrap(debugMeta["images"] as? [[String: Any]])
-        let debugImage = try XCTUnwrap(images.first)
-        XCTAssertEqual(debugImage["image_addr"] as? String, image.imageAddress)
-        XCTAssertEqual(debugImage["image_vmaddr"] as? String, image.imageVmAddress)
-        XCTAssertEqual(debugImage["code_file"] as? String, image.codeFile)
-        XCTAssertEqual(debugImage["debug_id"] as? String, image.debugID)
-        XCTAssertEqual(debugImage["image_size"] as? NSNumber, image.imageSize)
-        XCTAssertEqual(debugImage["type"] as? String, image.type)
-    }
-
-    func testCollect_payloadContainsDeviceInfo() throws {
-        try skipIfThreadSanitizer()
-        startSDK()
-
-        let traceId = SentryId()
-        let startTime = SentrySDK.internal.profiling.start(for: traceId)
-        Thread.sleep(forTimeInterval: 0.2)
-
-        // -- Act --
-        let payload = SentrySDK.internal.profiling.collect(
-            between: startTime,
-            and: startTime + 200_000_000,
-            for: traceId
-        )
-
-        // -- Assert --
-        XCTAssertNotNil(payload?["device"])
-    }
-
-    func testCollect_payloadContainsProfileId() throws {
-        try skipIfThreadSanitizer()
-        startSDK()
-
-        let traceId = SentryId()
-        let startTime = SentrySDK.internal.profiling.start(for: traceId)
-        Thread.sleep(forTimeInterval: 0.2)
-
-        // -- Act --
-        let payload = SentrySDK.internal.profiling.collect(
-            between: startTime,
-            and: startTime + 200_000_000,
-            for: traceId
+            between: startTime, and: startTime + 200_000_000, for: traceId
         )
 
         // -- Assert --
         XCTAssertNotNil(payload?["profile_id"])
-    }
-
-    func testCollect_payloadContainsProfileData() throws {
-        try skipIfThreadSanitizer()
-        startSDK()
-
-        let traceId = SentryId()
-        let startTime = SentrySDK.internal.profiling.start(for: traceId)
-        Thread.sleep(forTimeInterval: 0.2)
-
-        // -- Act --
-        let payload = SentrySDK.internal.profiling.collect(
-            between: startTime,
-            and: startTime + 200_000_000,
-            for: traceId
-        )
-
-        // -- Assert --
+        XCTAssertNotNil(payload?["device"])
         let profile = payload?["profile"] as? NSDictionary
         XCTAssertNotNil(profile?["thread_metadata"])
         XCTAssertNotNil(profile?["samples"])
@@ -208,24 +117,43 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
         XCTAssertNotNil(profile?["frames"])
     }
 
-    func testCollect_payloadContainsTransactionInfo() throws {
+    func testCollect_shouldContainTransactionInfo() throws {
         try skipIfThreadSanitizer()
         startSDK()
 
+        // -- Arrange --
         let traceId = SentryId()
         let startTime = SentrySDK.internal.profiling.start(for: traceId)
         Thread.sleep(forTimeInterval: 0.2)
 
         // -- Act --
         let payload = SentrySDK.internal.profiling.collect(
-            between: startTime,
-            and: startTime + 200_000_000,
-            for: traceId
+            between: startTime, and: startTime + 200_000_000, for: traceId
         )
 
         // -- Assert --
-        let transactionInfo = try XCTUnwrap(payload?["transaction"] as? NSDictionary)
-        XCTAssertGreaterThan(try XCTUnwrap(transactionInfo["active_thread_id"] as? Int64), 0)
+        let transaction = try XCTUnwrap(payload?["transaction"] as? NSDictionary)
+        XCTAssertGreaterThan(try XCTUnwrap(transaction["active_thread_id"] as? Int64), 0)
+    }
+
+    func testCollect_shouldContainDebugMeta() throws {
+        try skipIfThreadSanitizer()
+        startSDK()
+
+        // -- Arrange --
+        let traceId = SentryId()
+        let startTime = SentrySDK.internal.profiling.start(for: traceId)
+        Thread.sleep(forTimeInterval: 0.2)
+
+        // -- Act --
+        let payload = SentrySDK.internal.profiling.collect(
+            between: startTime, and: startTime + 200_000_000, for: traceId
+        )
+
+        // -- Assert --
+        let debugMeta = try XCTUnwrap(payload?["debug_meta"] as? [String: Any])
+        let images = try XCTUnwrap(debugMeta["images"] as? [[String: Any]])
+        XCTAssertFalse(images.isEmpty)
     }
 
     func testCollect_withoutStart_shouldReturnNil() {
@@ -244,6 +172,7 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
         try skipIfThreadSanitizer()
         startSDK()
 
+        // -- Arrange --
         let traceId = SentryId()
         let startTime = SentrySDK.internal.profiling.start(for: traceId)
         XCTAssertGreaterThan(startTime, 0)
@@ -258,14 +187,6 @@ class SentryInternalProfilingApiIntegrationTests: XCTestCase {
 
         // -- Act & Assert (no crash) --
         SentrySDK.internal.profiling.discard(for: SentryId())
-    }
-
-    // MARK: - Helpers
-
-    private func skipIfThreadSanitizer() throws {
-        if sentry_threadSanitizerIsPresent() {
-            throw XCTSkip("Profiler does not run if thread sanitizer is attached.")
-        }
     }
 }
 

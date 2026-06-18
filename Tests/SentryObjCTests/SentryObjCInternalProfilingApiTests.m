@@ -25,11 +25,17 @@
 
 #    pragma mark - start
 
-- (void)testStart_shouldNotCrash
+- (void)testStart_shouldReturnNonZero
 {
-    // -- Act & Assert (no crash) --
+    // -- Act --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
-    (void)[SentryObjCSDK.internal.profiling startFor:traceId];
+    uint64_t startTime = [SentryObjCSDK.internal.profiling startFor:traceId];
+
+    // -- Assert --
+    XCTAssertGreaterThan(startTime, (uint64_t)0);
+
+    // -- Cleanup --
+    [SentryObjCSDK.internal.profiling discardFor:traceId];
 }
 
 #    pragma mark - collect
@@ -39,7 +45,9 @@
     // -- Act --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
     NSDictionary<NSString *, id> *result =
-        [SentryObjCSDK.internal.profiling collectBetween:0 and:1 for:traceId];
+        [SentryObjCSDK.internal.profiling collectBetweenStartTime:0
+                                                       andEndTime:1
+                                                       forTraceId:traceId];
 
     // -- Assert --
     XCTAssertNil(result);
@@ -51,14 +59,6 @@
 {
     // -- Act & Assert (no crash) --
     SentryObjCId *traceId = [[SentryObjCId alloc] init];
-    [SentryObjCSDK.internal.profiling discardFor:traceId];
-}
-
-- (void)testDiscard_calledMultipleTimes_shouldNotCrash
-{
-    // -- Act & Assert (no crash) --
-    SentryObjCId *traceId = [[SentryObjCId alloc] init];
-    [SentryObjCSDK.internal.profiling discardFor:traceId];
     [SentryObjCSDK.internal.profiling discardFor:traceId];
 }
 

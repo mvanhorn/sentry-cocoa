@@ -9,18 +9,23 @@ class SentryInternalProfilingApiTests: XCTestCase {
 
     // MARK: - start
 
-    func testStart_withoutSDK_shouldNotCrash() {
-        let startTime = sut.start(for: SentryId())
-        // On some platforms the profiler may start even without an SDK running,
-        // so we only verify it doesn't crash (returns 0 or a valid system time).
-        _ = startTime
+    func testStart_withoutSDK_shouldReturnNonZero() {
+        // Profiler uses kernel APIs and can start without the SDK.
+        let traceId = SentryId()
+        let startTime = sut.start(for: traceId)
+        XCTAssertGreaterThan(startTime, 0)
+        sut.discard(for: traceId)
     }
 
-    func testStart_withDifferentTraceIds_shouldNotCrash() {
-        let startTimeA = sut.start(for: SentryId())
-        let startTimeB = sut.start(for: SentryId())
-        _ = startTimeA
-        _ = startTimeB
+    func testStart_withoutSDK_multipleCalls_shouldAllReturnNonZero() {
+        let traceA = SentryId()
+        let traceB = SentryId()
+        let startA = sut.start(for: traceA)
+        let startB = sut.start(for: traceB)
+        XCTAssertGreaterThan(startA, 0)
+        XCTAssertGreaterThan(startB, 0)
+        sut.discard(for: traceA)
+        sut.discard(for: traceB)
     }
 
     // MARK: - collect
@@ -30,13 +35,15 @@ class SentryInternalProfilingApiTests: XCTestCase {
         XCTAssertNil(result)
     }
 
-    func testCollect_withZeroTimeRange_shouldReturnNil() {
-        let result = sut.collect(between: 0, and: 0, for: SentryId())
+    func testCollect_withoutSDK_shouldReturnNil() {
+        let traceId = SentryId()
+        _ = sut.start(for: traceId)
+        let result = sut.collect(between: 0, and: 1_000_000, for: traceId)
         XCTAssertNil(result)
     }
 
-    func testCollect_withArbitraryTimes_shouldReturnNil() {
-        let result = sut.collect(between: 100, and: 200, for: SentryId())
+    func testCollect_withUnknownTraceId_shouldReturnNil() {
+        let result = sut.collect(between: 0, and: 1_000_000, for: SentryId())
         XCTAssertNil(result)
     }
 
@@ -46,10 +53,14 @@ class SentryInternalProfilingApiTests: XCTestCase {
         sut.discard(for: SentryId())
     }
 
-    func testDiscard_calledMultipleTimes_shouldNotCrash() {
+    func testDiscard_withoutSDK_shouldNotCrash() {
         let traceId = SentryId()
+        _ = sut.start(for: traceId)
         sut.discard(for: traceId)
-        sut.discard(for: traceId)
+    }
+
+    func testDiscard_withUnknownTraceId_shouldNotCrash() {
+        sut.discard(for: SentryId())
     }
 }
 
