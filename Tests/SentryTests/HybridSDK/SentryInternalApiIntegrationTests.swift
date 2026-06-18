@@ -156,7 +156,7 @@ class SentryInternalApiIntegrationTests: XCTestCase {
         }
         defer { SentrySDK.internal.setLogOutput(nil) }
 
-        SentrySDKLog.log(message: "test-log-output", andLevel: .debug)
+        SentrySDKLog.log(message: "test-log-output", andLevel: .fatal)
         XCTAssertTrue(received?.contains("test-log-output") == true)
     }
 
@@ -179,7 +179,9 @@ class SentryInternalApiIntegrationTests: XCTestCase {
         let options = try SentrySDK.internal.options(fromDictionary: [
             "dsn": SentryInternalApiIntegrationTests.dsnAsString
         ])
-        XCTAssertEqual(options.dsn, SentryInternalApiIntegrationTests.dsnAsString)
+        let expectedDsn = try SentryDsn(string: SentryInternalApiIntegrationTests.dsnAsString)
+        XCTAssertNotNil(options.parsedDsn)
+        XCTAssertEqual(options.parsedDsn?.url.absoluteString, expectedDsn.url.absoluteString)
     }
 
     func testOptionsFromDictionary_withInvalidDictionary_shouldThrow() {
